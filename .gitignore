@@ -1,0 +1,4 @@
+*model*/
+*tokenizer*/
+/__pycache__/
+!*.py
