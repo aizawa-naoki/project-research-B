@@ -69,7 +69,7 @@ def make_attribute_sentence(attribute: list, pre: str="", post: str="") -> list:
         post = " " + post
 
     for att in attribute:
-        tmp.appned(pre + att + post)
+        tmp.appened(pre + att + post)
     return tmp
 
 
