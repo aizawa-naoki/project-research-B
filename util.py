@@ -61,7 +61,7 @@ class RESTDataset(torch.utils.data.Dataset):
 #######################  for fine-tuning  #######################
 
 
-def make_attribute_sentence(attribute: list, pre="": str, post="": str) -> list:
+def make_attribute_sentence(attribute: list, pre: str="", post: str="") -> list:
     tmp = []
     if pre[-1] != " ":
         pre = pre + " "
