@@ -7,12 +7,12 @@ import pandas as pd
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange  # tqdmで処理進捗を表示
-from util import make_bert_inputs, flat_accuracy
+from util import make_bert_inputs, flat_accuracy, make_attribute_sentence
 from sklearn.model_selection import train_test_split
 
-if len(sys.argv) != 5:
-    print("argments must be 4.")
-    print("1:cuda_num, 2:model_name, 3:sentence_length, 4:Position_reversed(0=False,1=True)")
+if len(sys.argv) != 7:
+    print("argments must be 6.")
+    print("1:cuda_num, 2:model_name, 3:sentence_length, 4:Position_reversed(0=False,1=True), 5:Pre-sentence, 6: Post-sentence")
     sys.exit(1)
 
 cuda_num = sys.argv[1]
@@ -25,6 +25,8 @@ cuda_num = sys.argv[1]
 model_name = sys.argv[2]
 sentence_len = sys.argv[3]
 position_reversed = bool(int(sys.argv[4]))
+pre = sys.argv[5]
+post = sys.argv[6]
 
 if torch.cuda.is_available():
     device = torch.device('cuda:' + cuda_num)
@@ -44,6 +46,11 @@ max_grad_norm = 1.0
 
 attribute_list = ["AMBIENCE#GENERAL", "DRINKS#PRICES", "DRINKS#QUALITY", "DRINKS#STYLE_OPTIONS", "DRINKS#STYLE_OPTIONS", "FOOD#PRICES",
                   "FOOD#STYLE_OPTIONS", "LOCATION#GENERAL", "RESTAURANT#GENERAL", "RESTAURANT#MISCELLANEOUS", "RESTAURANT#PRICES", "SERVICE#GENERAL"]
+
+if pre != "" and post != "":
+    attribute_list = make_attribute_sentence(
+        attribute_list, pre=pre, post=post)
+
 
 # correct label list
 labels = pd.read_csv("../data/REST_test_y.csv",
