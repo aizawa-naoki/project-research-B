@@ -7,7 +7,7 @@ import pandas as pd
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange  # tqdmで処理進捗を表示
-from util import make_bert_inputs, flat_accuracy
+from util import make_bert_inputs, flat_accuracy, make_attribute_sentence
 from sklearn.model_selection import train_test_split
 import torch.nn as nn
 

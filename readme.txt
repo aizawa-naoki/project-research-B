@@ -18,3 +18,6 @@
 	2.1のスクリプトから若干の改変をしたもの
 	・labelのattributeもbert-tokenizerのinputに加えることで"指向的な"判断をできるようにしたもの。
 		⇒全体的な正解率を底上げしたかった。
+2.4.2_attribute-tune2.py
+	2.4.1のスクリプトから若干の改変をしたもの
+	・segment maskを付けた

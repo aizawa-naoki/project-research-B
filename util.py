@@ -61,6 +61,18 @@ class RESTDataset(torch.utils.data.Dataset):
 #######################  for fine-tuning  #######################
 
 
+def make_attribute_sentence(attribute: list, pre="": str, post="": str) -> list:
+    tmp = []
+    if pre[-1] != " ":
+        pre = pre + " "
+    if post[0] != " ":
+        post = " " + post
+
+    for att in attribute:
+        tmp.appned(pre + att + post)
+    return tmp
+
+
 def make_bert_inputs(path="../data/REST_train_x.csv", sentence_length=128, config="bert-base-uncased", attribute=None, segmented=False, pos_change=False):
     # examples of attribute : "AMBIENCE#GENERAL", "DRINKS#PRICES",
     # "RESTAURANT#MISCELLANEOUS"

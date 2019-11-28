@@ -7,15 +7,15 @@ import pandas as pd
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange  # tqdmで処理進捗を表示
-from util import make_bert_inputs, flat_accuracy
+from util import make_bert_inputs, flat_accuracy, make_attribute_sentence
 from sklearn.model_selection import train_test_split
 import torch.nn as nn
 
 torch.manual_seed(2019)
 
-if len(sys.argv) != 7:
-    print("argments must be 6.")
-    print("1:cuda_num, 2:start_label, 3:sentence length, 4:Position_reversed(0=False,1=True), 5: if use weight 1, 6:model_name")
+if len(sys.argv) != 9:
+    print("argments must be 8.")
+    print("1:cuda_num, 2:start_label, 3:sentence length, 4:Position_reversed(0=False,1=True), 5: if use weight 1, 6:model_name 7: PRE, 8: POST")
     sys.exit(1)
 
 if sys.argv[1].isdigit() == False or sys.argv[2].isdigit() == False or sys.argv[3].isdigit == False or sys.argv[4].isdigit == False or sys.argv[5].isdigit == False:
@@ -28,6 +28,8 @@ sentence_len = int(sys.argv[3])
 position_reversed = bool(int(sys.argv[4]))
 use_weight = bool(int(sys.argv[5]))
 model_name = sys.argv[6]
+pre = sys.argv[7]
+post = sys.argv[8]
 
 
 if torch.cuda.is_available():
@@ -48,8 +50,14 @@ max_grad_norm = 1.0
 attribute_list = ["AMBIENCE#GENERAL", "DRINKS#PRICES", "DRINKS#QUALITY", "DRINKS#STYLE_OPTIONS", "DRINKS#STYLE_OPTIONS", "FOOD#PRICES",
                   "FOOD#STYLE_OPTIONS", "LOCATION#GENERAL", "RESTAURANT#GENERAL", "RESTAURANT#MISCELLANEOUS", "RESTAURANT#PRICES", "SERVICE#GENERAL"]
 
+if pre != "" and post != "":
+    attribute_list = make_attribute_sentence(
+        attribute_list, pre=pre, post=post)
+
+
 labels = pd.read_csv("../data/REST_train_y.csv",
                      header=None).iloc[:, 1:].values
+
 
 for label_num in trange(start_label, labels.shape[1], desc="Label"):
     # make bert-inputs and correct label list
