@@ -39,7 +39,7 @@ else:
 
 #######################  setting  #######################
 # for train loop
-epoch_size = 20
+epoch_size = 6
 batch_size = 10
 # for warmup schedule
 num_total_steps = epoch_size * batch_size
