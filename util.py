@@ -144,7 +144,7 @@ def make_bert_inputs(path="../data/REST_train_x.csv", sentence_length=128, confi
         segment_masks.append(segment_mask)
         attention_masks.append(attention_mask)
 
-    input_ids, attention_masks, segment_masks, tokenizer
+    return input_ids, attention_masks, segment_masks, tokenizer
 
 
 def flat_accuracy(preds, labels):
