@@ -1,3 +1,4 @@
+import warnings
 import argparse
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification, AdamW, WarmupLinearSchedule
@@ -13,6 +14,8 @@ from sklearn.model_selection import train_test_split
 import torch.nn as nn
 
 torch.manual_seed(2019)
+
+warnings.simplefilter('ignore')
 
 #------------------------parser------------------------
 parser = argparse.ArgumentParser(
