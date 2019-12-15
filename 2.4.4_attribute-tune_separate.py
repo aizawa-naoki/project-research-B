@@ -1,4 +1,3 @@
-import warnings
 import argparse
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification, AdamW, WarmupLinearSchedule
@@ -15,7 +14,6 @@ import torch.nn as nn
 
 torch.manual_seed(2019)
 
-warnings.simplefilter('ignore')
 
 #------------------------parser------------------------
 parser = argparse.ArgumentParser(
