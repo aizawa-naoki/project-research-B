@@ -63,9 +63,9 @@ class RESTDataset(torch.utils.data.Dataset):
 
 def make_attribute_sentence(attribute: list, pre: str="", post: str="") -> list:
     tmp = []
-    if pre[-1] != " ":
+    if pre != "" and pre[-1] != " ":
         pre = pre + " "
-    if post[0] != " ":
+    if post != "" and post[0] != " ":
         post = " " + post
 
     for att in attribute:
@@ -132,6 +132,8 @@ def make_bert_inputs(path="../data/REST_train_x.csv", sentence_length=128, confi
             segment_mask = [0] * len_of_attribute + [1] * len_of_text
         else:
             segment_mask = [0] * len_of_text + [1] * len_of_attribute
+        if not segmented:  # segmentedなら上書き
+            segment_mask = [0] * len_of_item
         attention_mask = [1] * len_of_item
 
         input_id += padding
@@ -142,10 +144,7 @@ def make_bert_inputs(path="../data/REST_train_x.csv", sentence_length=128, confi
         segment_masks.append(segment_mask)
         attention_masks.append(attention_mask)
 
-    if segmented:
-        return input_ids, attention_masks, segment_masks, tokenizer
-
-    return input_ids, attention_masks, tokenizer
+    input_ids, attention_masks, segment_masks, tokenizer
 
 
 def flat_accuracy(preds, labels):

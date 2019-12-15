@@ -20,4 +20,7 @@
 		⇒全体的な正解率を底上げしたかった。
 2.4.2_attribute-tune2.py
 	2.4.1のスクリプトから若干の改変をしたもの
-	・segment maskを付けた
+	・segment maskを付けた。(2文以上の入力は基本これ）
+2.4.3_attribute-tune3.py
+	2.4.1のスクリプトから若干の改変をしたもの
+	・attributeごとにmodelを作り直すのではなく、一括で全てのattributeを扱う（Q-A形式で)ようにした。

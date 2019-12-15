@@ -1,0 +1,6 @@
+2値分類方法をsoftmaxに変更する。（絶対値ってとったほうがいいのかな。）
+3値分類modelを作成する
+・いったん768→1にして、1→3(negative,neutral,positive)にするようなclassifierを書く
+・768→3にして、negative←→positiveを間違えたときに、negative←→neutralを間違えたときのペナルティの2倍にする
+　→
+lr BERTのみかえる
