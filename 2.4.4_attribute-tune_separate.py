@@ -54,7 +54,7 @@ segmented = args.segmented
 use_weight = args.weighted
 model_name = args.model_name
 pre = args.pre
-post = args.pos
+post = args.post
 #----------------------import end----------------------
 
 if torch.cuda.is_available():
