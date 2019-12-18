@@ -164,14 +164,18 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
                         [neutr_weight, react_weight, react_weight], requires_grad=False, device=device)
                     criterion = nn.modules.CrossEntropyLoss(
                         weight=torch.from_numpy(weight).float().to(device))
+                    logits = outputs[1]
+                    loss = criterion(logits.view(-1, num_labels),
+                                     b_labels.view(-1))
                 else:
                     temp = b_labels.cpu().numpy()
                     weight = np.where(temp == 0, neutr_weight, react_weight)
+                    m = nn.Softmax(dim=1)
                     criterion = nn.modules.BCELoss(
                         weight=torch.from_numpy(weight).float().to(device))
-                logits = outputs[1]
-                loss = criterion(logits.view(-1, num_labels),
-                                 b_labels.view(-1))
+                    logits = outputs[1]
+                    predicts = m(logits)[:, -1]
+                    loss = criterion(predicts.to(device), b_labels.float())
             else:
                 loss = outputs[0]
             loss.backward()
