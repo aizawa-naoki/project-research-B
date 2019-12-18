@@ -73,8 +73,8 @@ print("label,  TP,  FP,  FN,  TN,  accuracy,  precision,  recall,  F1")
 
 for label_num in range(0, labels.shape[1]):
     # make bert-inputs
-    inputs, masks, segments, _ = make_bert_inputs(path="../data/REST_test_x.csv", sentence_length=int(
-        sentence_len), config=("./tokenizer" + sentence_len), attribute=attribute_list[label_num], segmented=segmented, pos_change=position_reversed)
+    inputs, masks, segments, _ = make_bert_inputs(path="../data/REST_test_x.csv", sentence_length=sentence_len, config=(
+        "./tokenizer" + str(sentence_len)), attribute=attribute_list[label_num], segmented=segmented, pos_change=position_reversed)
     # bert-inputs -> tensor type
     tensor_inputs = torch.tensor(inputs, requires_grad=False)
     tensor_masks = torch.tensor(masks, requires_grad=False)

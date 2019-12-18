@@ -22,6 +22,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument("cuda", help="使用するGPUの番号を指定してください。0以上の整数値です。")
 parser.add_argument("model_name", help="保存する際に使用するモデルの名前を指定してください。")
 parser.add_argument(
+    "polarity", help="極性を含めた分類をする(True)か否か(False)です。", type=bool)
+parser.add_argument(
     "--reversed", help="attributeを入力する際に[文、属性](False)の順で渡すか、[属性、文](True)の順で渡すかを指定できます", type=bool, default=False)
 parser.add_argument(
     "--segmented", help="attributeを入力する2文に明示的に分けるか、同じ文章として入力するか指定します", type=bool, default=False)
@@ -38,7 +40,6 @@ parser.add_argument(
     "--post", help="Q&A形式にするためにattributeの\"後\"に追加する文を入力してください", default="")
 parser.add_argument("--epoch", help="訓練のエポック数を指定してください", type=int, default=6)
 
-
 args = parser.parse_args()
 
 #----------------------parser_end----------------------
@@ -46,6 +47,7 @@ args = parser.parse_args()
 #----------------------import args---------------------
 cuda_num = args.cuda
 start_label = args.start_label
+polarity = args.polarity
 sentence_len = args.sentence_length
 position_reversed = args.reversed
 segmented = args.segmented
@@ -76,8 +78,12 @@ attribute_list = ["AMBIENCE#GENERAL", "DRINKS#PRICES", "DRINKS#QUALITY", "DRINKS
 
 attribute_list = make_attribute_sentence(attribute_list, pre=pre, post=post)
 
-labels = pd.read_csv("../data/REST_train_y.csv",
-                     header=None).iloc[:, 1:].values
+if polarity:
+    labels = pd.read_csv("..data/REST_train_y_polarity.csv",
+                         header=None).iloc[:, 1:].values
+else:
+    labels = pd.read_csv("../data/REST_train_y.csv",
+                         header=None).iloc[:, 1:].values
 
 
 for label_num in trange(start_label, labels.shape[1], desc="Label"):
@@ -94,10 +100,17 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
 
     # weightを作る用
     if use_weight:
-        positive_size = np.count_nonzero(thelabel)
-        negative_size = len(thelabel) - positive_size
-        pos_weight = len(thelabel) / (2 * (positive_size + 10))
-        neg_weight = len(thelabel) / (2 * (negative_size + 10))
+        reactive_size = np.count_nonzero(train_labels)
+        neutral_size = len(train_labels) - reactive_size
+        react_weight = len(train_labels) / (2 * (reactive_size + 10))
+        neutr_weight = len(train_labels) / (2 * (neutral_size + 10))
+        # TODO: use_weight節の中身を3値分類しても機能するように拡張
+
+    # 極性ある場合はlabelの値を0,1,2とする
+    # negative,neutral,positive = -1,0,1 から 2,0,1に置換
+    #（model.forwardの際に、torch.nn.CrossEntropyLossにlabelが送られるが、そこで0以上の連続する自然数と指定されているため。）
+    if polarity:
+        train_labels = np.where(train_labels == -1, 2, train_labels)
 
     # bert-inputs & label -> tensor type
     train_inputs = torch.tensor(train_inputs, requires_grad=False)
@@ -112,9 +125,15 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     train_dataloader = DataLoader(
         train_data, sampler=train_sampler, batch_size=batch_size)
 
+    # set num_labels
+    if polarity:
+        num_labels = 3
+    else:
+        num_labels = 2
+
     # prepare bert model
     model = BertForSequenceClassification.from_pretrained(
-        "bert-base-uncased", num_labels=2)
+        "bert-base-uncased", num_labels=num_labels)
     model.to(device)
 
     # prepare optimizer and scheduler
@@ -139,14 +158,19 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             outputs = model(b_input_ids,
                             attention_mask=b_input_masks, labels=b_labels, token_type_ids=b_segments)
             if use_weight:
-                temp = b_labels.cpu().numpy()
-                weight = np.where(temp == 1, pos_weight, neg_weight)
-                m = nn.Softmax(dim=1)
-                criterion = nn.modules.BCELoss(
-                    weight=torch.from_numpy(weight).float().to(device))
+                if polarity:
+                    weight = torch.tensor(
+                        [neutr_weight, react_weight, react_weight], requires_grad=False, device=device)
+                    criterion = nn.modules.CrossEntropyLoss(
+                        weight=torch.from_numpy(weight).float().to(device))
+                else:
+                    temp = b_labels.cpu().numpy()
+                    weight = np.where(temp == 0, neutr_weight, react_weight)
+                    criterion = nn.modules.BCELoss(
+                        weight=torch.from_numpy(weight).float().to(device))
                 logits = outputs[1]
-                predicts = m(logits)[:, -1]
-                loss = criterion(predicts.to(device), b_labels.float())
+                loss = criterion(logits.view(-1, num_labels),
+                                 b_labels.view(-1))
             else:
                 loss = outputs[0]
             loss.backward()
