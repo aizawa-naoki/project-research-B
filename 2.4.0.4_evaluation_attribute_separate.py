@@ -1,4 +1,5 @@
 import argparse
+from distutils.util import strtobool
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification, AdamW, WarmupLinearSchedule
 import os
@@ -20,9 +21,9 @@ parser.add_argument("model_name", help="保存する際に使用するモデル�
 parser.add_argument("--sentence_length",
                     help="tokenizerに渡す文長を指定してください。", type=int, default=120)
 parser.add_argument(
-    "--reversed", help="attributeを入力する際に[文、属性](False)の順で渡すか、[属性、文](True)の順で渡すかを指定できます", type=bool, default=False)
+    "--reversed", help="attributeを入力する際に[文、属性](False)の順で渡すか、[属性、文](True)の順で渡すかを指定できます", type=strtobool, default=0)
 parser.add_argument(
-    "--segmented", help="attributeを入力する2文に明示的に分けるか、同じ文章として入力するか指定します", type=bool, default=False)
+    "--segmented", help="attributeを入力する2文に明示的に分けるか、同じ文章として入力するか指定します", type=strtobool, default=0)
 parser.add_argument(
     "--pre", help="Q&A形式にするためにattributeの\"前\"に追加する文を入力してください", default="")
 parser.add_argument(
@@ -38,8 +39,8 @@ args = parser.parse_args()
 cuda_num = args.cuda
 model_name = args.model_name
 sentence_len = args.sentence_length
-position_reversed = args.reversed
-segmented = args.segmented
+position_reversed = bool(args.reversed)
+segmented = bool(args.segmented)
 pre = args.pre
 post = args.post
 #----------------------import end----------------------

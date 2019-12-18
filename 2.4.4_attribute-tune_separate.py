@@ -1,4 +1,5 @@
 import argparse
+from distutils.util import strtobool
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification, AdamW, WarmupLinearSchedule
 import os
@@ -22,13 +23,13 @@ parser = argparse.ArgumentParser(
 parser.add_argument("cuda", help="使用するGPUの番号を指定してください。0以上の整数値です。")
 parser.add_argument("model_name", help="保存する際に使用するモデルの名前を指定してください。")
 parser.add_argument(
-    "polarity", help="極性を含めた分類をする(True)か否か(False)です。", type=bool)
+    "polarity", help="極性を含めた分類をする(True)か否か(False)です。", type=strtobool)
 parser.add_argument(
-    "--reversed", help="attributeを入力する際に[文、属性](False)の順で渡すか、[属性、文](True)の順で渡すかを指定できます", type=bool, default=False)
+    "--reversed", help="attributeを入力する際に[文、属性](False)の順で渡すか、[属性、文](True)の順で渡すかを指定できます", type=strtobool, default=0)
 parser.add_argument(
-    "--segmented", help="attributeを入力する2文に明示的に分けるか、同じ文章として入力するか指定します", type=bool, default=False)
+    "--segmented", help="attributeを入力する2文に明示的に分けるか、同じ文章として入力するか指定します", type=strtobool, default=0)
 parser.add_argument(
-    "--weighted", help="正例と不例の量の不均衡を補うために、逆伝搬の重みづけを行います", type=bool, default=True)
+    "--weighted", help="正例と不例の量の不均衡を補うために、逆伝搬の重みづけを行います", type=strtobool, default=1)
 parser.add_argument("--sentence_length",
                     help="tokenizerに渡す文長を指定してください。", type=int, default=120)
 
@@ -47,11 +48,11 @@ args = parser.parse_args()
 #----------------------import args---------------------
 cuda_num = args.cuda
 start_label = args.start_label
-polarity = args.polarity
+polarity = bool(args.polarity)
 sentence_len = args.sentence_length
-position_reversed = args.reversed
-segmented = args.segmented
-use_weight = args.weighted
+position_reversed = bool(args.reversed)
+segmented = bool(args.segmented)
+use_weight = bool(args.weighted)
 model_name = args.model_name
 pre = args.pre
 post = args.post
