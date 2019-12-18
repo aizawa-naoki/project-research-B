@@ -80,7 +80,7 @@ attribute_list = ["AMBIENCE#GENERAL", "DRINKS#PRICES", "DRINKS#QUALITY", "DRINKS
 attribute_list = make_attribute_sentence(attribute_list, pre=pre, post=post)
 
 if polarity:
-    labels = pd.read_csv("..data/REST_train_y_polarity.csv",
+    labels = pd.read_csv("../data/REST_train_y_polarity.csv",
                          header=None).iloc[:, 1:].values
 else:
     labels = pd.read_csv("../data/REST_train_y.csv",
