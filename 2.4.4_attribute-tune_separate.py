@@ -163,7 +163,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
                     weight = torch.tensor(
                         [neutr_weight, react_weight, react_weight], requires_grad=False, device=device)
                     criterion = nn.modules.CrossEntropyLoss(
-                        weight=torch.from_numpy(weight).float().to(device))
+                        weight=weight.float().to(device))
                     logits = outputs[1]
                     loss = criterion(logits.view(-1, num_labels),
                                      b_labels.view(-1))
