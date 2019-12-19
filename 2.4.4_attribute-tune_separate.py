@@ -106,6 +106,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
         react_weight = len(train_labels) / (2 * (reactive_size + 10))
         neutr_weight = len(train_labels) / (2 * (neutral_size + 10))
         # TODO: use_weight節の中身を3値分類しても機能するように拡張
+        print("reactive, neutral=" + react_weight + ", " + neutr_weight)
 
     # 極性ある場合はlabelの値を0,1,2とする
     # negative,neutral,positive = -1,0,1 から 2,0,1に置換
