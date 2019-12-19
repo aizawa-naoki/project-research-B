@@ -188,6 +188,9 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             optimizer.step()
             tr_loss += float(loss.item())
             nb_tr_steps += 1
+        print("b_labels and weight below")
+        print(b_labels)
+        print(weight)
         tqdm.write("Train loss: {}".format(tr_loss / nb_tr_steps))
         model.eval()
         del outputs
