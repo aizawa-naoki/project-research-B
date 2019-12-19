@@ -39,7 +39,7 @@ parser.add_argument(
     "--pre", help="Q&A形式にするためにattributeの\"前\"に追加する文を入力してください", default="")
 parser.add_argument(
     "--post", help="Q&A形式にするためにattributeの\"後\"に追加する文を入力してください", default="")
-parser.add_argument("--epoch", help="訓練のエポック数を指定してください", type=int, default=6)
+parser.add_argument("--epoch", help="訓練のエポック数を指定してください", type=int, default=10)
 
 args = parser.parse_args()
 
@@ -66,7 +66,7 @@ else:
 #######################  setting  #######################
 # for train loop
 epoch_size = args.epoch
-batch_size = 10
+batch_size = 16
 # for warmup schedule
 num_total_steps = epoch_size * batch_size
 num_warmup_steps = num_total_steps * 0.1
@@ -106,7 +106,6 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
         react_weight = len(train_labels) / (2 * (reactive_size + 10))
         neutr_weight = len(train_labels) / (2 * (neutral_size + 10))
         # TODO: use_weight節の中身を3値分類しても機能するように拡張
-        print("reactive, neutral=" + str(react_weight) + ", " + str(neutr_weight))
 
     # 極性ある場合はlabelの値を0,1,2とする
     # negative,neutral,positive = -1,0,1 から 2,0,1に置換
@@ -188,9 +187,6 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             optimizer.step()
             tr_loss += float(loss.item())
             nb_tr_steps += 1
-        print("b_labels and weight below")
-        print(b_labels)
-        print(weight)
         tqdm.write("Train loss: {}".format(tr_loss / nb_tr_steps))
         model.eval()
         del outputs
