@@ -97,7 +97,7 @@ for label_num in range(0, labels.shape[1]):
 
     # prepare bert model
     model = BertForSequenceClassification.from_pretrained(
-        input_dir, num_labels=2)
+        input_dir)
     model.to(device)
     model.eval()
     eval_accuracy = 0
