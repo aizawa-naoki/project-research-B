@@ -111,10 +111,13 @@ for label_num in range(0, labels.shape[1]):
             logits = outputs[1]
         logits = logits.detach().cpu().numpy()
         predict = np.argmax(logits, axis=1).flatten()
+
         label_ids = b_labels.to("cpu").numpy()
         answer = label_ids.flatten()
-        TP += np.count_nonzero((predict == 1) & (answer == 1))
-        FP += np.count_nonzero((predict == 1) & (answer == 0))
+        TP += np.count_nonzero(((predict == 1)
+                                or (predict == 2)) and (answer == 1))
+        FP += np.count_nonzero(((predict == 1)
+                                or (predict == 2)) and (answer == 0))
         FN += np.count_nonzero((predict == 0) & (answer == 1))
         TN += np.count_nonzero((predict == 0) & (answer == 0))
     accuracy = (TP + TN) / (TP + TN + FP + FN)
