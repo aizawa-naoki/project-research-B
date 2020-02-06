@@ -13,7 +13,7 @@ import numpy as np
 
 class Net(nn.Module):
 
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size=768, hidden_size=100, output_size=1):
         super(Net, self).__init__()
         # an affine operation: y = Wx + b
         self.fc1 = nn.Linear(input_size, hidden_size)
