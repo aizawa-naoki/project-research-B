@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("cuda", help="使用するGPUの番号を指定してください。0以上の整数値です。")
 parser.add_argument("model_name", help="保存する際に使用するモデルの名前を指定してください。")
 parser.add_argument(
-    "polarity", help="極性を含めた分類をする(True)か否か(False)です。", type=strtobool)
+    "polarity", help="極性を含めた、回帰分析をする(0)かラベルの有無の2値分類(1)か3値分類をする(2)かです。", type=int)
 parser.add_argument(
     "--reversed", help="attributeを入力する際に[文、属性](False)の順で渡すか、[属性、文](True)の順で渡すかを指定できます", type=strtobool, default=0)
 parser.add_argument(
@@ -48,7 +48,7 @@ args = parser.parse_args()
 #----------------------import args---------------------
 cuda_num = args.cuda
 start_label = args.start_label
-polarity = bool(args.polarity)
+polarity = args.polarity
 sentence_len = args.sentence_length
 position_reversed = bool(args.reversed)
 segmented = bool(args.segmented)
@@ -79,12 +79,14 @@ attribute_list = ["AMBIENCE#GENERAL", "DRINKS#PRICES", "DRINKS#QUALITY", "DRINKS
 
 attribute_list = make_attribute_sentence(attribute_list, pre=pre, post=post)
 
-if polarity:
+if polarity == 2:
     labels = pd.read_csv("../data/REST_train_y_polarity.csv",
                          header=None).iloc[:, 1:].values
-else:
+elif polarity == 1:
     labels = pd.read_csv("../data/REST_train_y.csv",
                          header=None).iloc[:, 1:].values
+elif polarity == 0:
+    print("実装してください。")
 
 
 for label_num in trange(start_label, labels.shape[1], desc="Label"):
@@ -110,7 +112,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     # 極性ある場合はlabelの値を0,1,2とする
     # negative,neutral,positive = -1,0,1 から 2,0,1に置換
     #（model.forwardの際に、torch.nn.CrossEntropyLossにlabelが送られるが、そこで0以上の連続する自然数と指定されているため。）
-    if polarity:
+    if polarity == 2:
         train_labels = np.where(train_labels == -1, 2, train_labels)
 
     # bert-inputs & label -> tensor type
@@ -127,10 +129,12 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
         train_data, sampler=train_sampler, batch_size=batch_size)
 
     # set num_labels
-    if polarity:
+    if polarity == 2:
         num_labels = 3
-    else:
+    elif polarity == 1:
         num_labels = 2
+    elif polarity == 0:
+        num_labels == 1
 
     # prepare bert model
     model = BertForSequenceClassification.from_pretrained(
@@ -158,8 +162,9 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             optimizer.zero_grad()
             outputs = model(b_input_ids,
                             attention_mask=b_input_masks, labels=b_labels, token_type_ids=b_segments)
+            # outputs = (loss計算済み), logits出力, (hidden_states), (attentions)
             if use_weight:
-                if polarity:
+                if polarity == 2:
                     weight = torch.tensor(
                         [neutr_weight, react_weight, react_weight], requires_grad=False, device=device)
                     criterion = nn.modules.CrossEntropyLoss(
@@ -167,7 +172,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
                     logits = outputs[1]
                     loss = criterion(logits.view(-1, num_labels),
                                      b_labels.view(-1))
-                else:
+                elif polarity == 1:
                     temp = b_labels.cpu().numpy()
                     weight = np.where(temp == 0, neutr_weight, react_weight)
                     m = nn.Softmax(dim=1)
@@ -176,8 +181,17 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
                     logits = outputs[1]
                     predicts = m(logits)[:, -1]
                     loss = criterion(predicts.to(device), b_labels.float())
+                elif polarity == 0:
+                    print("実装してください")
             else:
-                loss = outputs[0]
+                if polarity == 0:
+                    print("実装してください")
+                    m = nn.Tanh()
+                    predicts = m(outputs[1]) + 1  # 0-2の値をbatchごとに定める。
+                    loss = criterion
+
+                else:
+                    loss = outputs[0]
             loss.backward()
             torch.nn.utils.clip_grad_norm_(
                 optimizer_grouped_parameters[0]["params"], max_grad_norm)
