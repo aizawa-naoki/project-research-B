@@ -189,7 +189,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             # outputs = (sequence of hidden-states)[batch*sequence_len*hiddensize],
             # (pooler_out)[batch*hiddensize]
             bert_out = torch.mean(outputs[0], 1)  # batch*hiddensize
-            head_out = torch.mean(head(bert_out), 1)　  # batchsize
+            head_out = torch.mean(head(bert_out), 1)  # batchsize
             if use_weight:
                 if polarity == 1:
                     temp = b_labels.cpu().numpy()
