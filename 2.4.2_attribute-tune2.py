@@ -117,6 +117,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             optimizer.zero_grad()
             outputs = model(b_input_ids,
                             attention_mask=b_input_masks, labels=b_labels, token_type_ids=b_segments)
+            #outputs = (loss), logits, (hidden_states), (attentions)
             if use_weight:
                 temp = b_labels.cpu().numpy()
                 weight = np.where(temp == 1, pos_weight, neg_weight)
