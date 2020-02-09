@@ -184,6 +184,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             batch = [t.to(device) for t in batch]
             b_input_ids, b_input_masks, b_labels, b_segments = batch
             optimizer.zero_grad()
+            head_optimizer.zero_grad()
             outputs = model(b_input_ids,
                             attention_mask=b_input_masks, token_type_ids=b_segments)
             # outputs = (sequence of hidden-states)[batch*sequence_len*hiddensize],
@@ -201,7 +202,6 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
                     print("実装してください")
             else:
                 if polarity == 1:
-                    temp = b_labels.cpu().numpy()
                     criterion = nn.modules.BCELoss()
                     loss = criterion(head_out.to(device), b_labels.float())
                 elif polarity == 0:
