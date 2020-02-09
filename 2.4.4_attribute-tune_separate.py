@@ -1,7 +1,7 @@
 import argparse
 from distutils.util import strtobool
 import torch
-from transformers import BertTokenizer, BertForSequenceClassification, AdamW, WarmupLinearSchedule
+from transformers import BertTokenizer, BertModel, AdamW, WarmupLinearSchedule
 import os
 import sys
 import numpy as np
@@ -9,9 +9,10 @@ import pandas as pd
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange  # tqdmで処理進捗を表示
-from util import make_bert_inputs, flat_accuracy, make_attribute_sentence
+from util import make_bert_inputs, flat_accuracy, make_attribute_sentence, Net
 from sklearn.model_selection import train_test_split
 import torch.nn as nn
+import torch.optim as optim
 
 torch.manual_seed(2019)
 
@@ -23,7 +24,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("cuda", help="使用するGPUの番号を指定してください。0以上の整数値です。")
 parser.add_argument("model_name", help="保存する際に使用するモデルの名前を指定してください。")
 parser.add_argument(
-    "polarity", help="極性を含めた、回帰分析をする(0)かラベルの有無の2値分類(1)か3値分類をする(2)かです。", type=int)
+    "polarity", help="極性を含めた、回帰分析をする(0)(not implemented)かラベルの有無の2値分類(1)かです。", type=int)
 parser.add_argument(
     "--reversed", help="attributeを入力する際に[文、属性](False)の順で渡すか、[属性、文](True)の順で渡すかを指定できます", type=strtobool, default=0)
 parser.add_argument(
@@ -56,6 +57,23 @@ use_weight = bool(args.weighted)
 model_name = args.model_name
 pre = args.pre
 post = args.post
+
+if polarity != 1:
+    print("\n\n\tError polarity not implemented\n\n")
+    sys.exit()
+
+''' # testcase
+cuda_num = "0"
+start_label = 0
+polarity = 1
+sentence_len = 128
+position_reversed = False
+segmented = False
+use_weight = True
+model_name = testcase
+pre = ""
+post = ""
+'''
 #----------------------import end----------------------
 
 if torch.cuda.is_available():
@@ -79,14 +97,15 @@ attribute_list = ["AMBIENCE#GENERAL", "DRINKS#PRICES", "DRINKS#QUALITY", "DRINKS
 
 attribute_list = make_attribute_sentence(attribute_list, pre=pre, post=post)
 
-if polarity == 2:
-    labels = pd.read_csv("../data/REST_train_y_polarity.csv",
-                         header=None).iloc[:, 1:].values
-elif polarity == 1:
+# if polarity == 2:
+#    labels = pd.read_csv("../data/REST_train_y_polarity.csv",
+#                         header=None).iloc[:, 1:].values
+if polarity == 1:
     labels = pd.read_csv("../data/REST_train_y.csv",
                          header=None).iloc[:, 1:].values
 elif polarity == 0:
     print("実装してください。")
+    sys.exit()
 
 
 for label_num in trange(start_label, labels.shape[1], desc="Label"):
@@ -112,8 +131,8 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     # 極性ある場合はlabelの値を0,1,2とする
     # negative,neutral,positive = -1,0,1 から 2,0,1に置換
     #（model.forwardの際に、torch.nn.CrossEntropyLossにlabelが送られるが、そこで0以上の連続する自然数と指定されているため。）
-    if polarity == 2:
-        train_labels = np.where(train_labels == -1, 2, train_labels)
+    # if polarity == 2:
+    #    train_labels = np.where(train_labels == -1, 2, train_labels)
 
     # bert-inputs & label -> tensor type
     train_inputs = torch.tensor(train_inputs, requires_grad=False)
@@ -128,20 +147,22 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     train_dataloader = DataLoader(
         train_data, sampler=train_sampler, batch_size=batch_size)
 
-    # set num_labels
-    if polarity == 2:
-        num_labels = 3
-    elif polarity == 1:
+    # set num_labels (not used for now.)
+    if polarity == 1:
         num_labels = 2
     elif polarity == 0:
         num_labels == 1
 
     # prepare bert model
-    model = BertForSequenceClassification.from_pretrained(
-        "bert-base-uncased", num_labels=num_labels)
+    model = BertModel.from_pretrained(
+        "bert-base-uncased")
     model.to(device)
 
-    # prepare optimizer and scheduler
+    # prepare last FC net
+    head = Net(input_size=768, hidden_size=100, output_size=1)
+    head = head.to(device)
+
+    # prepare optimizer and scheduler for bert
     param_optimizer = list(model.named_parameters())
     no_decay = ["bias", "gamma", "beta"]
     optimizer_grouped_parameters = [{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.01}, {
@@ -150,6 +171,9 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
                       lr=2e-5, correct_bias=False)
     scheduler = WarmupLinearSchedule(
         optimizer, warmup_steps=num_warmup_steps, t_total=num_total_steps)
+
+    # prepare optimizer and scheduler for head
+    head_optimizer = optim.SGD(head.parameters(), lr=2e-4, momentum=0.9)
 
     for _ in trange(epoch_size, desc="Epoch"):
         tr_loss = 0
@@ -161,37 +185,27 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             b_input_ids, b_input_masks, b_labels, b_segments = batch
             optimizer.zero_grad()
             outputs = model(b_input_ids,
-                            attention_mask=b_input_masks, labels=b_labels, token_type_ids=b_segments)
-            # outputs = (loss計算済み), logits出力, (hidden_states), (attentions)
+                            attention_mask=b_input_masks, token_type_ids=b_segments)
+            # outputs = (sequence of hidden-states)[batch*sequence_len*hiddensize],
+            # (pooler_out)[batch*hiddensize]
+            bert_out = torch.mean(outputs[0], 1)  # batch*hiddensize
+            head_out = torch.mean(head(bert_out), 1)　  # batchsize
             if use_weight:
-                if polarity == 2:
-                    weight = torch.tensor(
-                        [neutr_weight, react_weight, react_weight], requires_grad=False, device=device)
-                    criterion = nn.modules.CrossEntropyLoss(
-                        weight=weight.float().to(device))
-                    logits = outputs[1]
-                    loss = criterion(logits.view(-1, num_labels),
-                                     b_labels.view(-1))
-                elif polarity == 1:
+                if polarity == 1:
                     temp = b_labels.cpu().numpy()
                     weight = np.where(temp == 0, neutr_weight, react_weight)
-                    m = nn.Softmax(dim=1)
                     criterion = nn.modules.BCELoss(
                         weight=torch.from_numpy(weight).float().to(device))
-                    logits = outputs[1]
-                    predicts = m(logits)[:, -1]
-                    loss = criterion(predicts.to(device), b_labels.float())
+                    loss = criterion(head_out.to(device), b_labels.float())
                 elif polarity == 0:
                     print("実装してください")
             else:
-                if polarity == 0:
+                if polarity == 1:
+                    temp = b_labels.cpu().numpy()
+                    criterion = nn.modules.BCELoss()
+                    loss = criterion(head_out.to(device), b_labels.float())
+                elif polarity == 0:
                     print("実装してください")
-                    m = nn.Tanh()
-                    predicts = m(outputs[1]) + 1  # 0-2の値をbatchごとに定める。
-                    loss = criterion
-
-                else:
-                    loss = outputs[0]
             loss.backward()
             torch.nn.utils.clip_grad_norm_(
                 optimizer_grouped_parameters[0]["params"], max_grad_norm)
@@ -199,6 +213,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
                 optimizer_grouped_parameters[1]["params"], max_grad_norm)
             scheduler.step()
             optimizer.step()
+            head_optimizer.step()
             tr_loss += float(loss.item())
             nb_tr_steps += 1
         tqdm.write("Train loss: {}".format(tr_loss / nb_tr_steps))
@@ -207,7 +222,10 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     output_dir = "./models_" + model_name + "/label" + str(label_num)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    else:
+        print("Existing output directory....\ndelete olc model.\n")
     model.save_pretrained(output_dir)
+    torch.save(head.state_dict(), output_dir + "/head")
     model.to("cpu")
     batch = [t.to("cpu") for t in batch]
     del train_inputs
@@ -217,6 +235,8 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     del train_sampler
     del train_dataloader
     del model
+    del head
+    del head_optimizer
     del batch
     del b_input_ids
     del b_input_masks
