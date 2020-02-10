@@ -180,6 +180,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
         nb_tr_steps = 0
 
         model.train()
+        head.train()
         for batch in train_dataloader:
             batch = [t.to(device) for t in batch]
             b_input_ids, b_input_masks, b_labels, b_segments = batch
@@ -218,6 +219,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             nb_tr_steps += 1
         tqdm.write("Train loss: {}".format(tr_loss / nb_tr_steps))
         model.eval()
+        head.eval()
         del outputs
     output_dir = "./models_" + model_name + "/label" + str(label_num)
     if not os.path.exists(output_dir):
