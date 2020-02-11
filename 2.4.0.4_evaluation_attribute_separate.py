@@ -1,7 +1,7 @@
 import argparse
 from distutils.util import strtobool
 import torch
-from transformers import BertTokenizer, BertForSequenceClassification, AdamW, WarmupLinearSchedule
+from transformers import BertTokenizer, BertModel, AdamW, WarmupLinearSchedule
 import os
 import sys
 import numpy as np
@@ -9,7 +9,7 @@ import pandas as pd
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange  # tqdmで処理進捗を表示
-from util import make_bert_inputs, flat_accuracy, make_attribute_sentence
+from util import make_bert_inputs, flat_accuracy, make_attribute_sentence, Net
 from sklearn.model_selection import train_test_split
 
 #------------------------parser------------------------
@@ -51,14 +51,7 @@ else:
     device = torch.device('cpu')
 
 #######################  setting  #######################
-# for train loop
-epoch_size = 10
 batch_size = 30
-# for warmup schedule
-num_total_steps = epoch_size * batch_size
-num_warmup_steps = num_total_steps * 0.1
-# for gradient clipping
-max_grad_norm = 1.0
 #########################################################
 
 attribute_list = ["AMBIENCE#GENERAL", "DRINKS#PRICES", "DRINKS#QUALITY", "DRINKS#STYLE_OPTIONS", "DRINKS#STYLE_OPTIONS", "FOOD#PRICES",
@@ -76,6 +69,7 @@ for label_num in range(0, labels.shape[1]):
     # make bert-inputs
     inputs, masks, segments, _ = make_bert_inputs(path="../data/REST_test_x.csv", sentence_length=sentence_len, config=(
         "./tokenizer" + str(sentence_len)), attribute=attribute_list[label_num], segmented=segmented, pos_change=position_reversed)
+
     # bert-inputs -> tensor type
     tensor_inputs = torch.tensor(inputs, requires_grad=False)
     tensor_masks = torch.tensor(masks, requires_grad=False)
@@ -83,9 +77,9 @@ for label_num in range(0, labels.shape[1]):
     input_dir = "./models_" + model_name + "/label" + str(label_num)
     if not os.path.exists(input_dir):
         print("Error: input_dir not exist.")
+
     # split inputs and labels into 1.)train data & 2.)validation data
     thelabel = labels[:, label_num]
-
     tensor_labels = torch.tensor(thelabel, requires_grad=False)
 
     # make dataloader
@@ -96,10 +90,14 @@ for label_num in range(0, labels.shape[1]):
         dataset, sampler=sampler, batch_size=batch_size)
 
     # prepare bert model
-    model = BertForSequenceClassification.from_pretrained(
+    model = BertModel.from_pretrained(
         input_dir)
     model.to(device)
     model.eval()
+    head = Net()
+    head.load_state_dict(torch.load(input_dir + "/head"))
+    head.to(device)
+    head.eval()
     eval_accuracy = 0
     TP, FP, FN, TN = 0, 0, 0, 0
     for batch in dataloader:
@@ -107,17 +105,16 @@ for label_num in range(0, labels.shape[1]):
         b_input_ids, b_input_masks, b_segments, b_labels = batch
         with torch.no_grad():
             outputs = model(b_input_ids, attention_mask=b_input_masks,
-                            token_type_ids=b_segments, labels=b_labels)
-            logits = outputs[1]
-        logits = logits.detach().cpu().numpy()
-        predict = np.argmax(logits, axis=1).flatten()
+                            token_type_ids=b_segments)
+            bert_out = torch.mean(outputs[0], 1)
+            head_out = torch.mean(head(bert_out), 1)
+        logits = head_out.detach().cpu().numpy()
+        predict = np.where(logits > 0.5, 1, 0)
 
         label_ids = b_labels.to("cpu").numpy()
         answer = label_ids.flatten()
-        TP += np.count_nonzero(((predict == 1)
-                                | (predict == 2)) & (answer == 1))
-        FP += np.count_nonzero(((predict == 1)
-                                | (predict == 2)) & (answer == 0))
+        TP += np.count_nonzero((predict == 1) & (answer == 1))
+        FP += np.count_nonzero((predict == 1) & (answer == 0))
         FN += np.count_nonzero((predict == 0) & (answer == 1))
         TN += np.count_nonzero((predict == 0) & (answer == 0))
     accuracy = (TP + TN) / (TP + TN + FP + FN)
@@ -127,3 +124,4 @@ for label_num in range(0, labels.shape[1]):
     print("%5d,%4d,%4d,%4d,%4d,%10f,%11f,%8f,%4f" %
           (label_num + 1, TP,  FP,  FN,  TN, accuracy, precision,  recall,  F1))
     del model
+    del head
