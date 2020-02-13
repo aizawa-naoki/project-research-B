@@ -40,7 +40,8 @@ parser.add_argument(
     "--pre", help="Q&A形式にするためにattributeの\"前\"に追加する文を入力してください", default="")
 parser.add_argument(
     "--post", help="Q&A形式にするためにattributeの\"後\"に追加する文を入力してください", default="")
-parser.add_argument("--epoch", help="訓練のエポック数を指定してください", type=int, default=10)
+parser.add_argument("--epoch", help="訓練のエポック数を指定してください",
+                    type=int, default=10)  # essayでは4
 
 args = parser.parse_args()
 
@@ -84,7 +85,7 @@ else:
 #######################  setting  #######################
 # for train loop
 epoch_size = args.epoch
-batch_size = 16
+batch_size = 24
 # for warmup schedule
 num_total_steps = epoch_size * batch_size
 num_warmup_steps = num_total_steps * 0.1
