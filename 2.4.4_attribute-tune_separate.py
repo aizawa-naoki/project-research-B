@@ -1,3 +1,4 @@
+from comet_ml import Experiment
 import argparse
 from distutils.util import strtobool
 import torch
@@ -91,6 +92,17 @@ num_total_steps = epoch_size * batch_size
 num_warmup_steps = num_total_steps * 0.1
 # for gradient clipping
 max_grad_norm = 1.0
+#########################################################
+#                     for comet.ml
+experiment = Experiment(api_key="ZKtExS6RU6qdFRkqd9rivm0rp",
+                        project_name="general", workspace="aizawa-naoki")
+
+hyper_params = {"polarity": polarity, "sentence_len": sentence_len, "position_reversed": position_reversed,
+                "segmented": segmented, "use_weight": use_weight, "model_name": model_name, "pre_sentence": pre,
+                "post_sentence": post, "max_epoch": epoch_size, "batch_size": batch_size, "separate": "2.4.4.separated"}
+
+experiment.log_parameters(hyper_params)
+
 #########################################################
 
 attribute_list = ["AMBIENCE#GENERAL", "DRINKS#PRICES", "DRINKS#QUALITY", "DRINKS#STYLE_OPTIONS", "DRINKS#STYLE_OPTIONS", "FOOD#PRICES",
@@ -221,12 +233,15 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             head_optimizer.step()
             tr_loss += float(loss.item())
             nb_tr_steps += 1
+
             # batch loop end
-        tqdm.write("Train loss: {}".format(tr_loss / nb_tr_steps))
+        epoch_loss = tr_loss / nb_tr_steps
+        tqdm.write("Train loss: {}".format(epoch_loss))
         model.eval()
         head.eval()
         del outputs
-        if es.step(tr_loss / nb_tr_steps):
+        experiment.log_metric(("loss" + str(label_num)), epoch_loss)
+        if es.step(epoch_loss):
             print("early-stopping...")
             break  # early-stopping
         # epoch loop end
@@ -262,3 +277,4 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     del scheduler
     del thelabel
     del tr_loss
+    del epoch_loss
