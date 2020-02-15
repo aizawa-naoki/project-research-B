@@ -160,12 +160,6 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     train_dataloader = DataLoader(
         train_data, sampler=train_sampler, batch_size=batch_size)
 
-    # set num_labels (not used for now.)
-    if polarity == 1:
-        num_labels = 2
-    elif polarity == 0:
-        num_labels == 1
-
     # prepare bert model
     model = BertModel.from_pretrained(
         "bert-base-uncased")
@@ -249,7 +243,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     else:
-        print("Existing output directory....\ndelete olc model.\n")
+        print("output directory exists.\noverwrite old model.\n")
     model.save_pretrained(output_dir)
     torch.save(head.state_dict(), output_dir + "/head")
     model.to("cpu")
