@@ -9,7 +9,7 @@ import pandas as pd
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange  # tqdmで処理進捗を表示
-from util import make_bert_inputs, flat_accuracy, make_attribute_sentence, Net
+from util import make_bert_inputs, flat_accuracy, make_attribute_sentence, Net, EarlyStopping
 from sklearn.model_selection import train_test_split
 import torch.nn as nn
 import torch.optim as optim
@@ -41,7 +41,7 @@ parser.add_argument(
 parser.add_argument(
     "--post", help="Q&A形式にするためにattributeの\"後\"に追加する文を入力してください", default="")
 parser.add_argument("--epoch", help="訓練のエポック数を指定してください",
-                    type=int, default=10)  # essayでは4
+                    type=int, default=15)  # essayでは4
 
 args = parser.parse_args()
 
@@ -163,6 +163,9 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     head = Net(input_size=768, hidden_size=100, output_size=1)
     head = head.to(device)
 
+    # prepare early-stopping
+    es = EarlyStopping(patience=3, min_delta=0.01)
+
     # prepare optimizer and scheduler for bert
     param_optimizer = list(model.named_parameters())
     no_decay = ["bias", "gamma", "beta"]
@@ -218,10 +221,15 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
             head_optimizer.step()
             tr_loss += float(loss.item())
             nb_tr_steps += 1
+            # batch loop end
         tqdm.write("Train loss: {}".format(tr_loss / nb_tr_steps))
         model.eval()
         head.eval()
         del outputs
+        if es.step(tr_loss / nb_tr_steps):
+            print("early-stopping...")
+            break  # early-stopping
+        # epoch loop end
     output_dir = "./models_" + model_name + "/label" + str(label_num)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
