@@ -164,7 +164,7 @@ for label_num in trange(start_label, labels.shape[1], desc="Label"):
     head = head.to(device)
 
     # prepare early-stopping
-    es = EarlyStopping(patience=3, min_delta=0.01)
+    es = EarlyStopping(patience=4, min_delta=1, percentage=True)
 
     # prepare optimizer and scheduler for bert
     param_optimizer = list(model.named_parameters())
