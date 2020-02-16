@@ -110,7 +110,6 @@ for label_num in range(0, labels.shape[1]):
             head_out = torch.mean(head(bert_out), 1)
         logits = head_out.detach().cpu().numpy()
         predict = np.where(logits > 0.5, 1, 0)
-
         label_ids = b_labels.to("cpu").numpy()
         answer = label_ids.flatten()
         TP += np.count_nonzero((predict == 1) & (answer == 1))
